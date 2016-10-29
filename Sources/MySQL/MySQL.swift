@@ -860,7 +860,7 @@ public final class MySQLStmt {
     /// manage results sets for MysqlStmt
     public final class Results {
         let _UNSIGNED_FLAG = UInt32(UNSIGNED_FLAG)
-		public typealias Element = [Any?]
+		public typealias Element = [String: Any?]
 		
 		let stmt: MySQLStmt
         
@@ -869,6 +869,7 @@ public final class MySQLStmt {
 		
 		var meta: UnsafeMutablePointer<MYSQL_RES>? { return stmt.meta }
 		let binds: UnsafeMutablePointer<MYSQL_BIND>
+        var fieldNames = [String]()
 		
 		let lengthBuffers: UnsafeMutablePointer<UInt>
 		let isNullBuffers: UnsafeMutablePointer<my_bool>
@@ -975,6 +976,7 @@ public final class MySQLStmt {
 					continue
 				}
                 let f: MYSQL_FIELD = field.pointee
+                fieldNames.append(String(cString: UnsafePointer<CChar>(f.name)))
 				var bind = bindField(field)
 				bind.length = lengthBuffers.advanced(by: i)
 				bind.length.initialize(to: 0)
@@ -1094,7 +1096,7 @@ public final class MySQLStmt {
 					let isNull = bind.is_null.pointee
 					
 					if isNull != 0 {
-						row.append(nil)
+						row[fieldNames[i]] = nil
 					} else {
 						
 						switch genType {
@@ -1102,43 +1104,43 @@ public final class MySQLStmt {
                             switch bind.buffer_type {
                             case MYSQL_TYPE_FLOAT:
                                 let f = bind.buffer.assumingMemoryBound(to: Float.self).pointee
-                                row.append(f)
+                                row[fieldNames[i]] = f
                             case MYSQL_TYPE_DOUBLE:
                                 let f = bind.buffer.assumingMemoryBound(to: Double.self).pointee
-                                row.append(f)
+                                row[fieldNames[i]] = f
                             default: break
                             }
 						case .Integer:
                             if bind.is_unsigned == 1 {
                                 switch bind.buffer_type {
                                 case MYSQL_TYPE_LONGLONG:
-                                    let i = bind.buffer.assumingMemoryBound(to: CUnsignedLongLong.self).pointee
-                                    row.append(i)
+                                    let pointee = bind.buffer.assumingMemoryBound(to: CUnsignedLongLong.self).pointee
+                                    row[fieldNames[i]] = pointee
                                 case MYSQL_TYPE_LONG, MYSQL_TYPE_INT24:
-                                    let i = bind.buffer.assumingMemoryBound(to: CUnsignedInt.self).pointee
-                                    row.append(i)
+                                    let pointee = bind.buffer.assumingMemoryBound(to: CUnsignedInt.self).pointee
+                                    row[fieldNames[i]] = pointee
                                 case MYSQL_TYPE_SHORT:
-                                    let i = bind.buffer.assumingMemoryBound(to: CUnsignedShort.self).pointee
-                                    row.append(i)
+                                    let pointee = bind.buffer.assumingMemoryBound(to: CUnsignedShort.self).pointee
+                                    row[fieldNames[i]] = pointee
                                 case MYSQL_TYPE_TINY:
-                                    let i = bind.buffer.assumingMemoryBound(to: CUnsignedChar.self).pointee
-                                    row.append(i)
+                                    let pointee = bind.buffer.assumingMemoryBound(to: CUnsignedChar.self).pointee
+                                    row[fieldNames[i]] = pointee
                                 default: break
                                 }
                             } else {
                                 switch bind.buffer_type {
                                 case MYSQL_TYPE_LONGLONG:
-                                    let i = bind.buffer.assumingMemoryBound(to: CLongLong.self).pointee
-                                    row.append(i)
+                                    let pointee = bind.buffer.assumingMemoryBound(to: CLongLong.self).pointee
+                                    row[fieldNames[i]] = pointee
                                 case MYSQL_TYPE_LONG, MYSQL_TYPE_INT24:
-                                    let i = bind.buffer.assumingMemoryBound(to: CInt.self).pointee
-                                    row.append(i)
+                                    let pointee = bind.buffer.assumingMemoryBound(to: CInt.self).pointee
+                                    row[fieldNames[i]] = pointee
                                 case MYSQL_TYPE_SHORT:
-                                    let i = bind.buffer.assumingMemoryBound(to: CShort.self).pointee
-                                    row.append(i)
+                                    let pointee = bind.buffer.assumingMemoryBound(to: CShort.self).pointee
+                                    row[fieldNames[i]] = pointee
                                 case MYSQL_TYPE_TINY:
-                                    let i = bind.buffer.assumingMemoryBound(to: CChar.self).pointee
-                                    row.append(i)
+                                    let pointee = bind.buffer.assumingMemoryBound(to: CChar.self).pointee
+                                    row[fieldNames[i]] = pointee
                                 default: break
                                 }
                             }
@@ -1161,7 +1163,7 @@ public final class MySQLStmt {
 							while let c = gen.next() {
 								a.append(c)
 							}
-							row.append(a)
+							row[fieldNames[i]] = a
 							
 						case .String, .Date:
 							
@@ -1178,10 +1180,10 @@ public final class MySQLStmt {
 							}
 							
 							let s = UTF8Encoding.encode(generator: GenerateFromPointer(from: raw, count: length))
-							row.append(s)
+							row[fieldNames[i]] = s
 							
 						case .Null:
-							row.append(nil)
+							row[fieldNames[i]] = nil
 						}
 					}
 				}
